@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/floor.dart';
 import '../services/firebase_service.dart';
 
 /// A few bundled sample floor plan images (add these under assets/floorplans/
@@ -10,7 +11,14 @@ const samplePlans = <String>[
 ];
 
 class AddFloorScreen extends StatefulWidget {
-  const AddFloorScreen({super.key});
+  const AddFloorScreen({
+    super.key,
+    this.floor,
+    this.service,
+  });
+
+  final Floor? floor;
+  final FirebaseService? service;
 
   @override
   State<AddFloorScreen> createState() => _AddFloorScreenState();
@@ -18,28 +26,54 @@ class AddFloorScreen extends StatefulWidget {
 
 class _AddFloorScreenState extends State<AddFloorScreen> {
   final _nameCtrl = TextEditingController();
-  final _service = FirebaseService();
+  late final FirebaseService _service = widget.service ?? FirebaseService();
   String? _selectedPlan;
   int _rows = 6;
   int _cols = 6;
   bool _saving = false;
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.floor != null) {
+      _nameCtrl.text = widget.floor!.name;
+      _selectedPlan = widget.floor!.imageAsset;
+      _rows = widget.floor!.gridRows;
+      _cols = widget.floor!.gridCols;
+    }
+  }
+
   Future<void> _save() async {
-    if (_nameCtrl.text.trim().isEmpty) return;
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) return;
+
     setState(() => _saving = true);
-    await _service.addFloor(
-      name: _nameCtrl.text.trim(),
-      imageAsset: _selectedPlan,
-      gridRows: _rows,
-      gridCols: _cols,
-    );
+
+    if (widget.floor != null) {
+      final updated = widget.floor!.copyWith(
+        name: name,
+        imageAsset: _selectedPlan,
+        gridRows: _rows,
+        gridCols: _cols,
+      );
+      await _service.updateFloor(updated);
+    } else {
+      await _service.addFloor(
+        name: name,
+        imageAsset: _selectedPlan,
+        gridRows: _rows,
+        gridCols: _cols,
+      );
+    }
+
     if (mounted) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
+    final isEditing = widget.floor != null;
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Floor')),
+      appBar: AppBar(title: Text(isEditing ? 'Edit Floor' : 'Add Floor')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -89,7 +123,7 @@ class _AddFloorScreenState extends State<AddFloorScreen> {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.check),
-            label: const Text('Create Floor'),
+            label: Text(isEditing ? 'Save Changes' : 'Create Floor'),
           ),
         ],
       ),

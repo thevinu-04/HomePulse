@@ -6,15 +6,18 @@ import 'floor_grid_screen.dart';
 import 'alerts_screen.dart';
 
 class FloorListScreen extends StatefulWidget {
-  const FloorListScreen({super.key});
+  const FloorListScreen({super.key, FirebaseService? service})
+      : _service = service;
+
+  final FirebaseService? _service;
+
+  FirebaseService get service => _service ?? FirebaseService();
 
   @override
   State<FloorListScreen> createState() => _FloorListScreenState();
 }
 
 class _FloorListScreenState extends State<FloorListScreen> {
-  final _service = FirebaseService();
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -32,7 +35,7 @@ class _FloorListScreenState extends State<FloorListScreen> {
         ],
       ),
       body: StreamBuilder<List<Floor>>(
-        stream: _service.floorsStream(),
+        stream: widget.service.floorsStream(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
@@ -54,7 +57,54 @@ class _FloorListScreenState extends State<FloorListScreen> {
                   leading: const Icon(Icons.layers_outlined, size: 32),
                   title: Text(floor.name),
                   subtitle: Text('${floor.gridRows} x ${floor.gridCols} grid'),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: PopupMenuButton<String>(
+                    tooltip: 'Floor actions',
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (value) async {
+                      if (value == 'edit') {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => AddFloorScreen(
+                              floor: floor,
+                              service: widget.service,
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+
+                      if (value == 'delete') {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Delete floor?'),
+                            content: Text(
+                              'This will remove ${floor.name} and all devices assigned to it.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('Cancel'),
+                              ),
+                              FilledButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text('Delete'),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (confirm == true) {
+                          await widget.service.deleteFloor(floor.id);
+                        }
+                      }
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(value: 'edit', child: Text('Edit')),
+                      PopupMenuItem(value: 'delete', child: Text('Delete')),
+                    ],
+                  ),
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -72,7 +122,7 @@ class _FloorListScreenState extends State<FloorListScreen> {
         label: const Text('Add Floor'),
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const AddFloorScreen()),
+          MaterialPageRoute(builder: (_) => AddFloorScreen(service: widget.service)),
         ),
       ),
     );

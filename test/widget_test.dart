@@ -5,26 +5,38 @@
 // gestures. You can also use WidgetTester to find child widgets in the widget
 // tree, read text, and verify that the values of widget properties are correct.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:home_grid/models/floor.dart';
+import 'package:home_grid/screens/floor_list_screen.dart';
+import 'package:home_grid/services/firebase_service.dart';
 
-import 'package:home_grid/main.dart';
+class FakeFirebaseService extends FirebaseService {
+  @override
+  Stream<List<Floor>> floorsStream() {
+    return Stream.value([
+      Floor(id: 'floor-1', name: 'Main Floor', gridRows: 5, gridCols: 4),
+    ]);
+  }
+}
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('floor list shows a floor and action menu', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FloorListScreen(service: FakeFirebaseService()),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(find.text('Main Floor'), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Edit'), findsOneWidget);
+    expect(find.text('Delete'), findsOneWidget);
   });
 }

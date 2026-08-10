@@ -13,6 +13,22 @@ class Floor {
     this.gridCols = 6,
   });
 
+  Floor copyWith({
+    String? id,
+    String? name,
+    String? imageAsset,
+    int? gridRows,
+    int? gridCols,
+  }) {
+    return Floor(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      imageAsset: imageAsset ?? this.imageAsset,
+      gridRows: gridRows ?? this.gridRows,
+      gridCols: gridCols ?? this.gridCols,
+    );
+  }
+
   factory Floor.fromMap(String id, Map<dynamic, dynamic> map) {
     return Floor(
       id: id,

@@ -15,13 +15,17 @@ import '../models/device.dart';
 ///   type == safetyCritical and forces status -> off if `turnedOnAt`
 ///   exceeds `maxOnDurationSeconds`, and writes an entry under `/alerts`.
 class FirebaseService {
-  final _db = FirebaseDatabase.instance.ref();
+  FirebaseService({DatabaseReference? db}) : _db = db;
+
+  final DatabaseReference? _db;
   final _uuid = const Uuid();
+
+  DatabaseReference get _ref => _db ?? FirebaseDatabase.instance.ref();
 
   // ---------------- FLOORS ----------------
 
   Stream<List<Floor>> floorsStream() {
-    return _db.child('floors').onValue.map((event) {
+    return _ref.child('floors').onValue.map((event) {
       final data = event.snapshot.value as Map<dynamic, dynamic>?;
       if (data == null) return <Floor>[];
       return data.entries.map((e) => Floor.fromMap(e.key, e.value)).toList();
@@ -42,14 +46,18 @@ class FirebaseService {
       gridRows: gridRows,
       gridCols: gridCols,
     );
-    await _db.child('floors/$id').set(floor.toMap());
+    await _ref.child('floors/$id').set(floor.toMap());
     return id;
   }
 
+  Future<void> updateFloor(Floor floor) async {
+    await _ref.child('floors/${floor.id}').update(floor.toMap());
+  }
+
   Future<void> deleteFloor(String floorId) async {
-    await _db.child('floors/$floorId').remove();
+    await _ref.child('floors/$floorId').remove();
     // also remove devices that belonged to this floor
-    final snap = await _db
+    final snap = await _ref
         .child('devices')
         .orderByChild('floorId')
         .equalTo(floorId)
@@ -57,7 +65,7 @@ class FirebaseService {
     final data = snap.value as Map<dynamic, dynamic>?;
     if (data != null) {
       for (final key in data.keys) {
-        await _db.child('devices/$key').remove();
+        await _ref.child('devices/$key').remove();
       }
     }
   }
@@ -65,7 +73,7 @@ class FirebaseService {
   // ---------------- DEVICES ----------------
 
   Stream<List<Device>> devicesForFloorStream(String floorId) {
-    return _db
+    return _ref
         .child('devices')
         .orderByChild('floorId')
         .equalTo(floorId)
@@ -78,7 +86,7 @@ class FirebaseService {
   }
 
   Stream<Device?> deviceStream(String deviceId) {
-    return _db.child('devices/$deviceId').onValue.map((event) {
+    return _ref.child('devices/$deviceId').onValue.map((event) {
       final data = event.snapshot.value as Map<dynamic, dynamic>?;
       if (data == null) return null;
       return Device.fromMap(deviceId, data);
@@ -87,12 +95,12 @@ class FirebaseService {
 
   Future<String> addDevice(Device device) async {
     final id = device.id.isNotEmpty ? device.id : _uuid.v4();
-    await _db.child('devices/$id').set(device.toMap());
+    await _ref.child('devices/$id').set(device.toMap());
     return id;
   }
 
   Future<void> deleteDevice(String deviceId) async {
-    await _db.child('devices/$deviceId').remove();
+    await _ref.child('devices/$deviceId').remove();
   }
 
   /// Simple ON/OFF toggle for outlets, irons, scheduled lights.
@@ -116,13 +124,13 @@ class FirebaseService {
       updates['turnedOnAt'] = null;
     }
 
-    await _db.child('devices/${device.id}').update(updates);
+    await _ref.child('devices/${device.id}').update(updates);
   }
 
   /// Toggle one channel inside a multi-switch gang unit.
   Future<void> toggleChannel(Device device, String channelId) async {
     final channel = device.channels.firstWhere((c) => c.id == channelId);
-    await _db
+    await _ref
         .child('devices/${device.id}/channels/$channelId/isOn')
         .set(!channel.isOn);
 
@@ -130,13 +138,13 @@ class FirebaseService {
     final anyOn = device.channels
         .map((c) => c.id == channelId ? !c.isOn : c.isOn)
         .any((v) => v);
-    await _db.child('devices/${device.id}/status').set(
+    await _ref.child('devices/${device.id}/status').set(
         anyOn ? DeviceStatus.on.name : DeviceStatus.off.name);
   }
 
   Future<void> _logUsage(String deviceId, int elapsedSeconds) async {
     final logId = _uuid.v4();
-    await _db.child('usageLogs/$deviceId/$logId').set({
+    await _ref.child('usageLogs/$deviceId/$logId').set({
       'endedAt': DateTime.now().millisecondsSinceEpoch,
       'durationSeconds': elapsedSeconds,
     });
@@ -145,7 +153,7 @@ class FirebaseService {
   // ---------------- ALERTS (written by the Cloud Function safety worker) ----------------
 
   Stream<List<Map<String, dynamic>>> alertsStream() {
-    return _db.child('alerts').onValue.map((event) {
+    return _ref.child('alerts').onValue.map((event) {
       final data = event.snapshot.value as Map<dynamic, dynamic>?;
       if (data == null) return <Map<String, dynamic>>[];
       return data.entries
@@ -158,7 +166,7 @@ class FirebaseService {
   // ---------------- REPORTING ----------------
 
   Stream<Map<String, dynamic>> usageLogsForDevice(String deviceId) {
-    return _db.child('usageLogs/$deviceId').onValue.map((event) {
+    return _ref.child('usageLogs/$deviceId').onValue.map((event) {
       final data = event.snapshot.value as Map<dynamic, dynamic>?;
       return data == null ? {} : Map<String, dynamic>.from(data);
     });
