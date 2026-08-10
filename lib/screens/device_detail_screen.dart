@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/device.dart';
 import '../services/firebase_service.dart';
+import 'add_device_screen.dart';
 import 'reports_screen.dart';
 
 class DeviceDetailScreen extends StatefulWidget {
@@ -35,14 +36,93 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                   MaterialPageRoute(builder: (_) => ReportsScreen(device: device)),
                 ),
               ),
+              PopupMenuButton<String>(
+                tooltip: 'Device actions',
+                onSelected: (value) async {
+                  if (value == 'edit') {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AddDeviceScreen(
+                          floorId: device.floorId,
+                          gridRow: device.gridRow,
+                          gridCol: device.gridCol,
+                          device: device,
+                          service: _service,
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+
+                  if (value == 'delete') {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Delete device?'),
+                        content: Text('Remove ${device.name} from this floor?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Delete'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirm == true) {
+                      await _service.deleteDevice(device.id);
+                      if (mounted) Navigator.pop(context);
+                    }
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'edit', child: Text('Edit')),
+                  PopupMenuItem(value: 'delete', child: Text('Delete')),
+                ],
+              ),
             ],
           ),
           body: Padding(
             padding: const EdgeInsets.all(20),
-            child: _buildBody(device),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _deviceHeader(device),
+                const SizedBox(height: 20),
+                Expanded(child: _buildBody(device)),
+              ],
+            ),
           ),
         );
       },
+    );
+  }
+
+  Widget _deviceHeader(Device device) {
+    final showToggle = switch (device.type) {
+      DeviceType.outlet || DeviceType.safetyCritical || DeviceType.scheduledLight => true,
+      _ => false,
+    };
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            device.name,
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+        ),
+        if (showToggle)
+          Switch(
+            value: device.status == DeviceStatus.on,
+            onChanged: (_) => _service.toggleDevice(device),
+          ),
+      ],
     );
   }
 
@@ -61,32 +141,12 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     }
   }
 
-  Widget _statusChip(DeviceStatus status) {
-    final colors = {
-      DeviceStatus.on: Colors.green,
-      DeviceStatus.off: Colors.grey,
-      DeviceStatus.error: Colors.red,
-      DeviceStatus.disconnected: Colors.orange,
-    };
-    return Chip(
-      label: Text(status.name.toUpperCase()),
-      backgroundColor: colors[status]!.withOpacity(0.15),
-      labelStyle: TextStyle(color: colors[status], fontWeight: FontWeight.bold),
-    );
-  }
-
   Widget _simpleToggleView(Device device) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _statusChip(device.status),
-        const SizedBox(height: 24),
-        Center(
-          child: Switch(
-            value: device.status == DeviceStatus.on,
-            onChanged: (_) => _service.toggleDevice(device),
-          ),
-        ),
+        const SizedBox(height: 8),
+        Text('Device is ${device.status.name.toUpperCase()}'),
       ],
     );
   }
@@ -95,22 +155,12 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _statusChip(device.status),
-        const SizedBox(height: 12),
         Text('Max continuous ON: ${device.maxOnDurationSeconds ?? 0}s'),
         const SizedBox(height: 4),
         const Text(
           'This device is monitored server-side. If left ON past its max '
           'duration it will be auto-switched OFF and an alert raised.',
           style: TextStyle(color: Colors.grey),
-        ),
-        const SizedBox(height: 24),
-        Center(
-          child: Switch(
-            activeColor: Colors.red,
-            value: device.status == DeviceStatus.on,
-            onChanged: (_) => _service.toggleDevice(device),
-          ),
         ),
       ],
     );
@@ -120,18 +170,10 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _statusChip(device.status),
-        const SizedBox(height: 12),
         Text('Auto ON: ${device.scheduleStart ?? '--'}'),
         Text('Auto OFF: ${device.scheduleEnd ?? '--'}'),
-        const SizedBox(height: 24),
-        const Text('Manual override:'),
-        Center(
-          child: Switch(
-            value: device.status == DeviceStatus.on,
-            onChanged: (_) => _service.toggleDevice(device),
-          ),
-        ),
+        const SizedBox(height: 12),
+        const Text('Manual override is controlled from the toggle above.'),
       ],
     );
   }
@@ -140,8 +182,6 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _statusChip(device.status),
-        const SizedBox(height: 12),
         Text('${device.channels.length}-switch gang unit'),
         const SizedBox(height: 12),
         Expanded(
@@ -167,8 +207,6 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _statusChip(device.status),
-        const SizedBox(height: 12),
         Text('Stream: ${device.streamUri ?? 'not configured'}'),
         const SizedBox(height: 16),
         Container(

@@ -78,6 +78,40 @@ class Device {
     this.totalOnSeconds = 0,
   });
 
+  Device copyWith({
+    String? id,
+    String? floorId,
+    String? name,
+    DeviceType? type,
+    DeviceStatus? status,
+    int? gridRow,
+    int? gridCol,
+    int? turnedOnAt,
+    int? maxOnDurationSeconds,
+    String? scheduleStart,
+    String? scheduleEnd,
+    List<SwitchChannel>? channels,
+    String? streamUri,
+    int? totalOnSeconds,
+  }) {
+    return Device(
+      id: id ?? this.id,
+      floorId: floorId ?? this.floorId,
+      name: name ?? this.name,
+      type: type ?? this.type,
+      status: status ?? this.status,
+      gridRow: gridRow ?? this.gridRow,
+      gridCol: gridCol ?? this.gridCol,
+      turnedOnAt: turnedOnAt ?? this.turnedOnAt,
+      maxOnDurationSeconds: maxOnDurationSeconds ?? this.maxOnDurationSeconds,
+      scheduleStart: scheduleStart ?? this.scheduleStart,
+      scheduleEnd: scheduleEnd ?? this.scheduleEnd,
+      channels: channels ?? this.channels,
+      streamUri: streamUri ?? this.streamUri,
+      totalOnSeconds: totalOnSeconds ?? this.totalOnSeconds,
+    );
+  }
+
   factory Device.fromMap(String id, Map<dynamic, dynamic> map) {
     final channelsMap = map['channels'] as Map<dynamic, dynamic>? ?? {};
     return Device(

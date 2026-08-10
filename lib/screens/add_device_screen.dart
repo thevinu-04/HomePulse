@@ -7,12 +7,16 @@ class AddDeviceScreen extends StatefulWidget {
   final String floorId;
   final int gridRow;
   final int gridCol;
+  final Device? device;
+  final FirebaseService? service;
 
   const AddDeviceScreen({
     super.key,
     required this.floorId,
     required this.gridRow,
     required this.gridCol,
+    this.device,
+    this.service,
   });
 
   @override
@@ -24,12 +28,43 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
   final _maxDurationCtrl = TextEditingController(text: '900'); // 15 min default
   final _channelCountCtrl = TextEditingController(text: '3');
   final _streamUriCtrl = TextEditingController(text: 'mock://camera/stream.jpg');
-  final _service = FirebaseService();
+  late final FirebaseService _service = widget.service ?? FirebaseService();
 
   DeviceType _type = DeviceType.outlet;
   TimeOfDay _start = const TimeOfDay(hour: 18, minute: 0);
   TimeOfDay _end = const TimeOfDay(hour: 23, minute: 0);
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.device != null) {
+      final device = widget.device!;
+      _nameCtrl.text = device.name;
+      _type = device.type;
+      _maxDurationCtrl.text = (device.maxOnDurationSeconds ?? 900).toString();
+      _channelCountCtrl.text = device.channels.length.toString();
+      _streamUriCtrl.text = device.streamUri ?? 'mock://camera/stream.jpg';
+      if (device.scheduleStart != null) {
+        final parts = device.scheduleStart!.split(':');
+        if (parts.length == 2) {
+          _start = TimeOfDay(
+            hour: int.tryParse(parts[0]) ?? 18,
+            minute: int.tryParse(parts[1]) ?? 0,
+          );
+        }
+      }
+      if (device.scheduleEnd != null) {
+        final parts = device.scheduleEnd!.split(':');
+        if (parts.length == 2) {
+          _end = TimeOfDay(
+            hour: int.tryParse(parts[0]) ?? 23,
+            minute: int.tryParse(parts[1]) ?? 0,
+          );
+        }
+      }
+    }
+  }
 
   String _fmt(TimeOfDay t) =>
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
@@ -38,22 +73,37 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
     if (_nameCtrl.text.trim().isEmpty) return;
     setState(() => _saving = true);
 
-    final id = const Uuid().v4();
     List<SwitchChannel> channels = [];
     if (_type == DeviceType.multiSwitch) {
       final count = int.tryParse(_channelCountCtrl.text) ?? 3;
-      channels = List.generate(
-        count,
-        (i) => SwitchChannel(id: 'ch${i + 1}', label: 'Switch ${i + 1}', isOn: false),
-      );
+      channels = (widget.device?.channels.isNotEmpty == true && widget.device!.channels.length == count)
+          ? widget.device!.channels
+          : List.generate(
+              count,
+              (i) => SwitchChannel(
+                id: 'ch${i + 1}',
+                label: 'Switch ${i + 1}',
+                isOn: false,
+              ),
+            );
     }
 
-    final device = Device(
-      id: id,
+    final baseDevice = widget.device ??
+        Device(
+          id: const Uuid().v4(),
+          floorId: widget.floorId,
+          name: _nameCtrl.text.trim(),
+          type: _type,
+          status: DeviceStatus.off,
+          gridRow: widget.gridRow,
+          gridCol: widget.gridCol,
+        );
+
+    final device = baseDevice.copyWith(
       floorId: widget.floorId,
       name: _nameCtrl.text.trim(),
       type: _type,
-      status: DeviceStatus.off,
+      status: widget.device?.status ?? DeviceStatus.off,
       gridRow: widget.gridRow,
       gridCol: widget.gridCol,
       maxOnDurationSeconds: _type == DeviceType.safetyCritical
@@ -65,14 +115,19 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
       streamUri: _type == DeviceType.camera ? _streamUriCtrl.text.trim() : null,
     );
 
-    await _service.addDevice(device);
+    if (widget.device != null) {
+      await _service.updateDevice(device);
+    } else {
+      await _service.addDevice(device);
+    }
     if (mounted) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
+    final isEditing = widget.device != null;
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Device')),
+      appBar: AppBar(title: Text(isEditing ? 'Edit Device' : 'Add Device')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -109,7 +164,7 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
                 ? const SizedBox(
                     width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.check),
-            label: const Text('Add Device'),
+            label: Text(isEditing ? 'Save Changes' : 'Add Device'),
           ),
         ],
       ),

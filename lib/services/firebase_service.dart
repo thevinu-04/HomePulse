@@ -99,6 +99,10 @@ class FirebaseService {
     return id;
   }
 
+  Future<void> updateDevice(Device device) async {
+    await _ref.child('devices/${device.id}').update(device.toMap());
+  }
+
   Future<void> deleteDevice(String deviceId) async {
     await _ref.child('devices/$deviceId').remove();
   }
