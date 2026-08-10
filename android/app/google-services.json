@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "524867996005",
+    "firebase_url": "https://smarthomemonitoring-b14b7-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "smarthomemonitoring-b14b7",
+    "storage_bucket": "smarthomemonitoring-b14b7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:524867996005:android:512fb92cb8fc5400f7398c",
+        "android_client_info": {
+          "package_name": "com.example.home_grid"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBvddapWlM0DOVCFxd0G_UpthWN8YBfnzA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
