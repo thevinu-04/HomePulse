@@ -105,7 +105,10 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
 
   Widget _deviceHeader(Device device) {
     final showToggle = switch (device.type) {
-      DeviceType.outlet || DeviceType.safetyCritical || DeviceType.scheduledLight => true,
+      DeviceType.outlet ||
+      DeviceType.safetyCritical ||
+      DeviceType.scheduledLight ||
+      DeviceType.camera => true,
       _ => false,
     };
 
@@ -179,6 +182,8 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   }
 
   Widget _multiSwitchView(Device device) {
+    final channels = [...device.channels]
+      ..sort((first, second) => _channelNumber(first).compareTo(_channelNumber(second)));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -186,9 +191,9 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
         const SizedBox(height: 12),
         Expanded(
           child: ListView.builder(
-            itemCount: device.channels.length,
+            itemCount: channels.length,
             itemBuilder: (context, i) {
-              final ch = device.channels[i];
+              final ch = channels[i];
               return Card(
                 child: SwitchListTile(
                   title: Text(ch.label),
@@ -203,7 +208,14 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     );
   }
 
+  int _channelNumber(SwitchChannel channel) {
+    final match = RegExp(r'\d+').firstMatch(channel.label) ??
+        RegExp(r'\d+').firstMatch(channel.id);
+    return match == null ? 0 : int.parse(match.group(0)!);
+  }
+
   Widget _cameraView(Device device) {
+    final isOn = device.status == DeviceStatus.on;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -212,17 +224,21 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
         Container(
           height: 220,
           decoration: BoxDecoration(
-            color: Colors.black87,
+            color: isOn ? Colors.black87 : Colors.black26,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Center(
-            child: Icon(Icons.videocam_outlined, color: Colors.white54, size: 48),
+          child: Center(
+            child: Icon(
+              isOn ? Icons.videocam_outlined : Icons.videocam_off_outlined,
+              color: Colors.white54,
+              size: 48,
+            ),
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Mock snapshot placeholder - wire up an actual image/network stream URI here.',
-          style: TextStyle(color: Colors.grey),
+        Text(
+          isOn ? 'Camera is on.' : 'Camera is off.',
+          style: const TextStyle(color: Colors.grey),
         ),
       ],
     );

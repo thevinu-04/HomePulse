@@ -142,16 +142,29 @@ class FirebaseService {
   /// Toggle one channel inside a multi-switch gang unit.
   Future<void> toggleChannel(Device device, String channelId) async {
     final channel = device.channels.firstWhere((c) => c.id == channelId);
-    await _ref
-        .child('devices/${device.id}/channels/$channelId/isOn')
-        .set(!channel.isOn);
-
-    // unit-level status reflects whether ANY channel is on
-    final anyOn = device.channels
+    final isTurningOn = !channel.isOn;
+    final wasAnyOn = device.channels.any((c) => c.isOn);
+    final isAnyOn = device.channels
         .map((c) => c.id == channelId ? !c.isOn : c.isOn)
         .any((v) => v);
-    await _ref.child('devices/${device.id}/status').set(
-        anyOn ? DeviceStatus.on.name : DeviceStatus.off.name);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final updates = <String, dynamic>{
+      'channels/$channelId/isOn': isTurningOn,
+      'status': isAnyOn ? DeviceStatus.on.name : DeviceStatus.off.name,
+    };
+
+    if (!wasAnyOn && isAnyOn) {
+      updates['turnedOnAt'] = now;
+    } else if (wasAnyOn && !isAnyOn) {
+      if (device.turnedOnAt != null) {
+        final elapsedSeconds = ((now - device.turnedOnAt!) / 1000).round();
+        updates['totalOnSeconds'] = device.totalOnSeconds + elapsedSeconds;
+        await _logUsage(device.id, elapsedSeconds);
+      }
+      updates['turnedOnAt'] = null;
+    }
+
+    await _ref.child('devices/${device.id}').update(updates);
   }
 
   Future<void> _logUsage(String deviceId, int elapsedSeconds) async {
