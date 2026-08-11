@@ -72,14 +72,6 @@ class FirebaseService {
 
   // ---------------- DEVICES ----------------
 
-  Stream<List<Device>> devicesStream() {
-    return _ref.child('devices').onValue.map((event) {
-      final data = event.snapshot.value as Map<dynamic, dynamic>?;
-      if (data == null) return <Device>[];
-      return data.entries.map((e) => Device.fromMap(e.key, e.value)).toList();
-    });
-  }
-
   Stream<List<Device>> devicesForFloorStream(String floorId) {
     return _ref
         .child('devices')
