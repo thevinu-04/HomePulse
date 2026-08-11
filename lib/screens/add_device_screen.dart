@@ -141,7 +141,7 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<DeviceType>(
-            value: _type,
+            initialValue: _type,
             decoration: const InputDecoration(
               labelText: 'Device type',
               border: OutlineInputBorder(),

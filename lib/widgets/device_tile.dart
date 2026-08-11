@@ -39,7 +39,7 @@ class DeviceTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = _statusColor();
     return Material(
-      color: color.withOpacity(0.12),
+      color: color.withValues(alpha: 0.12),
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),

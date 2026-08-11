@@ -110,13 +110,13 @@ class _FloorGridScreenState extends State<FloorGridScreen> {
 }
 
 class DottedEmptyCell extends StatelessWidget {
-  DottedEmptyCell({super.key});
+  const DottedEmptyCell({super.key});
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(
-          color: Colors.grey.withOpacity(0.4),
+          color: Colors.grey.withValues(alpha: 0.4),
           width: 1,
         ),
         borderRadius: BorderRadius.circular(8),
