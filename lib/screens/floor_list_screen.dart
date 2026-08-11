@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../models/device.dart';
 import '../models/floor.dart';
 import '../services/firebase_service.dart';
 import 'add_floor_screen.dart';
+import 'alerts_screen.dart';
 import 'device_detail_screen.dart';
 import 'floor_grid_screen.dart';
-import 'alerts_screen.dart';
+import 'my_floors_screen.dart';
 
 class FloorListScreen extends StatefulWidget {
   const FloorListScreen({super.key, FirebaseService? service})
@@ -35,11 +35,6 @@ class _FloorListScreenState extends State<FloorListScreen> {
               MaterialPageRoute(builder: (_) => const AlertsScreen()),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.logout_outlined),
-            tooltip: 'Log out',
-            onPressed: () => FirebaseAuth.instance.signOut(),
-          ),
         ],
       ),
       body: StreamBuilder<List<Device>>(
@@ -67,18 +62,19 @@ class _FloorListScreenState extends State<FloorListScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        icon: const Icon(Icons.add),
-        label: const Text('Add Floor'),
+        icon: const Icon(Icons.map_outlined),
+        label: const Text('View My Floors'),
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => AddFloorScreen(service: widget.service)),
+          MaterialPageRoute(
+              builder: (_) => MyFloorsScreen(service: widget.service)),
         ),
       ),
     );
   }
 }
 
-class _DashboardBody extends StatefulWidget {
+class _DashboardBody extends StatelessWidget {
   const _DashboardBody({
     required this.service,
     required this.floors,
@@ -90,31 +86,18 @@ class _DashboardBody extends StatefulWidget {
   final List<Device> devices;
 
   @override
-  State<_DashboardBody> createState() => _DashboardBodyState();
-}
-
-class _DashboardBodyState extends State<_DashboardBody> {
-  String? _selectedFloorId;
-
-  @override
   Widget build(BuildContext context) {
-    final selectedFloor = _resolveSelectedFloor();
-    final selectedDevices = selectedFloor == null
-        ? <Device>[]
-        : widget.devices
-            .where((device) => device.floorId == selectedFloor.id)
-            .toList();
-    final onlineDevices = widget.devices
+    final onlineDevices = devices
         .where((device) =>
             device.status != DeviceStatus.disconnected &&
             device.status != DeviceStatus.error)
         .length;
-    final activeDevices = widget.devices
+    final activeDevices = devices
         .where((device) => device.status == DeviceStatus.on)
         .length;
 
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: widget.service.alertsStream(),
+      stream: service.alertsStream(),
       builder: (context, alertSnapshot) {
         final alertCount = alertSnapshot.data?.length ?? 0;
         return ListView(
@@ -130,28 +113,27 @@ class _DashboardBodyState extends State<_DashboardBody> {
                   MaterialPageRoute(builder: (_) => const AlertsScreen())),
             ),
             const SizedBox(height: 16),
-            if (widget.floors.isEmpty)
+            _FloorsEntryCard(
+              floorCount: floors.length,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => MyFloorsScreen(service: service)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (floors.isEmpty)
               _EmptyFloors(
                 onAddFloor: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (_) => AddFloorScreen(service: widget.service)),
+                      builder: (_) => AddFloorScreen(service: service)),
                 ),
               )
             else
-              _FloorMonitor(
-                floors: widget.floors,
-                selectedFloor: selectedFloor!,
-                devices: selectedDevices,
-                onFloorChanged: (floorId) => setState(() {
-                  _selectedFloorId = floorId;
-                }),
-                onFloorTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => FloorGridScreen(floor: selectedFloor)),
-                ),
-                onDeviceTap: _openDevice,
+              _DashboardFloorPreview(
+                floors: floors,
+                devices: devices,
               ),
           ],
         );
@@ -159,22 +141,6 @@ class _DashboardBodyState extends State<_DashboardBody> {
     );
   }
 
-  Floor? _resolveSelectedFloor() {
-    if (widget.floors.isEmpty) {
-      return null;
-    }
-    return widget.floors.firstWhere(
-      (floor) => floor.id == _selectedFloorId,
-      orElse: () => widget.floors.first,
-    );
-  }
-
-  void _openDevice(Device device) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => DeviceDetailScreen(deviceId: device.id)),
-    );
-  }
 }
 
 class _DashboardTitle extends StatelessWidget {
@@ -262,80 +228,125 @@ class _MetricTile extends StatelessWidget {
   }
 }
 
-class _FloorMonitor extends StatelessWidget {
-  const _FloorMonitor({
-    required this.floors,
-    required this.selectedFloor,
-    required this.devices,
-    required this.onFloorChanged,
-    required this.onFloorTap,
-    required this.onDeviceTap,
-  });
-
-  final List<Floor> floors;
-  final Floor selectedFloor;
-  final List<Device> devices;
-  final ValueChanged<String> onFloorChanged;
-  final VoidCallback onFloorTap;
-  final ValueChanged<Device> onDeviceTap;
+class _FloorsEntryCard extends StatelessWidget {
+  const _FloorsEntryCard({required this.floorCount, required this.onTap});
+  final int floorCount;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              const Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Floors', style: TextStyle(fontWeight: FontWeight.w700)),
-                  SizedBox(height: 2),
-                  Text('Select a floor to inspect devices.'),
-                ]),
-              ),
-              DropdownButton<String>(
-                value: selectedFloor.id,
-                underline: const SizedBox.shrink(),
-                items: floors
-                    .map((floor) => DropdownMenuItem(
-                        value: floor.id, child: Text(floor.name)))
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) onFloorChanged(value);
-                },
-              ),
-            ]),
-            const SizedBox(height: 12),
-            InkWell(
-              onTap: onFloorTap,
-              borderRadius: BorderRadius.circular(8),
-              child: GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 290,
-                  mainAxisExtent: 112,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
-                ),
-                itemCount: devices.length,
-                itemBuilder: (context, index) => _MonitorDeviceCard(
-                  device: devices[index],
-                  onTap: () => onDeviceTap(devices[index]),
-                ),
-              ),
-            ),
-            if (devices.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
-                child: Center(child: Text('No devices on this floor yet.')),
-              ),
-          ]),
+        child: ListTile(
+          contentPadding: const EdgeInsets.all(16),
+          leading: const Icon(Icons.map_outlined, size: 30),
+          title: const Text('My Floors'),
+          subtitle: Text('$floorCount floor${floorCount == 1 ? '' : 's'} with editable device maps'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: onTap,
         ),
       );
 }
 
-class _MonitorDeviceCard extends StatelessWidget {
-  const _MonitorDeviceCard({required this.device, required this.onTap});
+class _DashboardFloorPreview extends StatefulWidget {
+  const _DashboardFloorPreview({required this.floors, required this.devices});
+
+  final List<Floor> floors;
+  final List<Device> devices;
+
+  @override
+  State<_DashboardFloorPreview> createState() => _DashboardFloorPreviewState();
+}
+
+class _DashboardFloorPreviewState extends State<_DashboardFloorPreview> {
+  String? _selectedFloorId;
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedFloor = widget.floors.firstWhere(
+      (floor) => floor.id == _selectedFloorId,
+      orElse: () => widget.floors.first,
+    );
+    final floorDevices = widget.devices
+        .where((device) => device.floorId == selectedFloor.id)
+        .toList();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Floors', style: TextStyle(fontWeight: FontWeight.w700)),
+                SizedBox(height: 2),
+                Text('Select a floor to inspect devices.'),
+              ]),
+            ),
+            DropdownButton<String>(
+              value: selectedFloor.id,
+              underline: const SizedBox.shrink(),
+              items: widget.floors
+                  .map((floor) => DropdownMenuItem(
+                        value: floor.id,
+                        child: Text(floor.name),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _selectedFloorId = value);
+                }
+              },
+            ),
+          ]),
+          const SizedBox(height: 12),
+          if (floorDevices.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(child: Text('No devices on this floor yet.')),
+            )
+          else
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 290,
+                mainAxisExtent: 112,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              itemCount: floorDevices.length,
+              itemBuilder: (context, index) => _DashboardDeviceCard(
+                device: floorDevices[index],
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DeviceDetailScreen(deviceId: floorDevices[index].id),
+                  ),
+                ),
+              ),
+            ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => FloorGridScreen(floor: selectedFloor),
+                ),
+              ),
+              icon: const Icon(Icons.map_outlined),
+              label: const Text('Open map'),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _DashboardDeviceCard extends StatelessWidget {
+  const _DashboardDeviceCard({required this.device, required this.onTap});
+
   final Device device;
   final VoidCallback onTap;
 
@@ -353,40 +364,29 @@ class _MonitorDeviceCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Icon(_deviceIcon(device.type), size: 17),
-                const SizedBox(width: 7),
-                Expanded(
-                  child: Text(device.name,
-                      maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                ),
-              ]),
+              Text(device.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
               const Spacer(),
-              Text(_typeLabel(device.type)),
+              Text(_deviceTypeLabel(device.type)),
               const SizedBox(height: 4),
-              Text(device.status.name.toUpperCase(),
-                  style: TextStyle(
-                    color: device.status == DeviceStatus.on
-                        ? Colors.teal
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  )),
+              Text(
+                device.status.name.toUpperCase(),
+                style: TextStyle(
+                  color: device.status == DeviceStatus.on
+                      ? Colors.teal
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ]),
           ),
         ),
       );
 }
 
-IconData _deviceIcon(DeviceType type) => switch (type) {
-      DeviceType.outlet => Icons.power_outlined,
-      DeviceType.safetyCritical => Icons.iron_outlined,
-      DeviceType.scheduledLight => Icons.lightbulb_outline,
-      DeviceType.multiSwitch => Icons.tune_outlined,
-      DeviceType.camera => Icons.videocam_outlined,
-    };
-
-String _typeLabel(DeviceType type) => switch (type) {
+String _deviceTypeLabel(DeviceType type) => switch (type) {
       DeviceType.outlet => 'OUTLET',
       DeviceType.safetyCritical => 'SAFETY OUTLET',
       DeviceType.scheduledLight => 'LIGHT',
