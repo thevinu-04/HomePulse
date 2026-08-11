@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>HomePulse  Hardware Simulator</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background: #0d0d0d;
+    color: #eee;
+    margin: 0;
+    padding: 24px;
+  }
+  h1 { font-size: 22px; color: #6ecbb0; margin: 0 0 4px; display: flex; align-items: center; gap: 10px; }
+  .subtitle { color: #888; font-size: 13px; margin: 0 0 20px; max-width: 700px; }
+  #connStatus { font-size: 12px; margin-bottom: 20px; }
+  #connStatus.ok { color: #2ecc71; }
+  #connStatus.err { color: #e74c3c; }
+
+  /* --- Floor tabs --- */
+  .tabBar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .tabBtn {
+    background: #1a1a1a; border: 1px solid #333; color: #999;
+    padding: 8px 16px; border-radius: 20px; cursor: pointer;
+    font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px;
+  }
+  .tabBtn:hover { border-color: #555; color: #ccc; }
+  .tabBtn.active { background: #2E7D6B; border-color: #2E7D6B; color: #fff; }
+
+  .floorTitle {
+    font-size: 14px; color: #6ecbb0; margin-bottom: 12px;
+  }
+
+  /* grid mirrors the app's abstract floor grid: gridRows x gridCols */
+  .floorGrid {
+    display: grid;
+    gap: 6px;
+    max-width: 760px;
+  }
+  .cell {
+    aspect-ratio: 1;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .cellEmpty {
+    border: 1px dashed #2e2e2e;
+    background: #131313;
+  }
+
+  /* --- Device cards (inside a grid cell) --- */
+  .card {
+    background: #1c1c1c; border: 2px solid #333; border-radius: 6px;
+    padding: 4px; transition: border-color .2s, box-shadow .2s;
+    display: flex; flex-direction: column; height: 100%; overflow: hidden;
+  }
+  .card.on { border-color: #2ecc71; box-shadow: 0 0 8px rgba(46,204,113,.15); }
+  .card.off { border-color: #444; }
+  .card.error { border-color: #e74c3c; box-shadow: 0 0 8px rgba(231,76,60,.15); }
+  .card.disconnected { border-color: #f39c12; }
+
+  .cardHead { display: flex; align-items: center; gap: 3px; }
+  .typeIcon { font-size: 9px; color: #999; width: 11px; text-align: center; }
+  .name {
+    font-weight: 600; font-size: 8px; flex: 1;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .led { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .led.on { background: #2ecc71; box-shadow: 0 0 5px #2ecc71; }
+  .led.off { background: #555; }
+  .led.error { background: #e74c3c; box-shadow: 0 0 5px #e74c3c; }
+  .led.disconnected { background: #f39c12; }
+
+  .statusSelect {
+    margin-top: auto;
+    width: 100%;
+    font-size: 7px;
+    padding: 1px 2px;
+    border-radius: 3px;
+    border: 1px solid #444;
+    background: #111;
+    cursor: pointer;
+  }
+  .statusSelect.on { color: #2ecc71; border-color: #2ecc71; }
+  .statusSelect.off { color: #999; }
+  .statusSelect.error { color: #e74c3c; border-color: #e74c3c; }
+  .statusSelect.disconnected { color: #f39c12; border-color: #f39c12; }
+
+  .empty { color: #777; font-size: 14px; padding: 40px 0; text-align: center; }
+</style>
+</head>
+<body>
+  <h1><i class="fa-solid fa-house-signal"></i> HomePulse Hardware Simulator</h1>
+  <div id="connStatus"></div>
+
+  <div class="tabBar" id="tabBar"></div>
+  <div id="deviceGrid"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBvddapWlM0DOVCFxd0G_UpthWN8YBfnzA",
+      databaseURL: "https://smarthomemonitoring-b14b7-default-rtdb.asia-southeast1.firebasedatabase.app/",
+      projectId: "smarthomemonitoring-b14b7",
+    };
+
+    const TYPE_ICONS = {
+      outlet: 'fa-solid fa-plug',
+      multiSwitch: 'fa-solid fa-sliders',
+      safetyCritical: 'fa-solid fa-fire',
+      scheduledLight: 'fa-solid fa-lightbulb',
+      camera: 'fa-solid fa-video',
+    };
+    const STATES = ['on', 'off', 'error', 'disconnected'];
+
+    let db = null;
+    let activeFloorId = null;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.database();
+      const statusEl = document.getElementById('connStatus');
+      statusEl.className = 'ok';
+      statusEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Connected  listening for live updates.';
+      listenForDevices();
+    });
+
+    function listenForDevices() {
+      const tabBar = document.getElementById('tabBar');
+      const grid = document.getElementById('deviceGrid');
+      let floors = {};
+      let devices = {};
+
+      db.ref('floors').on('value', (snap) => {
+        floors = snap.val() || {};
+        if (!activeFloorId || !floors[activeFloorId]) {
+          activeFloorId = Object.keys(floors)[0] || null;
+        }
+        render();
+      });
+
+      db.ref('devices').on('value', (snap) => {
+        devices = snap.val() || {};
+        render();
+      });
+
+      function render() {
+        const floorIds = Object.keys(floors);
+
+        if (floorIds.length === 0) {
+          tabBar.innerHTML = '';
+          grid.innerHTML = '<div class="empty">No floors yet  add one from the mobile app and it\'ll appear here live.</div>';
+          return;
+        }
+
+        tabBar.innerHTML = floorIds.map((id) => `
+          <button class="tabBtn ${id === activeFloorId ? 'active' : ''}" onclick="selectFloor('${id}')">
+            <i class="fa-solid fa-layer-group"></i> ${floors[id].name || 'Untitled'}
+          </button>`).join('');
+
+        const floor = floors[activeFloorId];
+        if (!floor) { grid.innerHTML = ''; return; }
+
+        const rows = floor.gridRows || 6;
+        const cols = floor.gridCols || 6;
+
+        const byCell = {};
+        Object.entries(devices).forEach(([id, d]) => {
+          if (d.floorId === activeFloorId) byCell[`${d.gridRow}_${d.gridCol}`] = { id, ...d };
+        });
+
+        let cellsHtml = '';
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const d = byCell[`${r}_${c}`];
+            cellsHtml += d ? `<div class="cell">${renderCard(d)}</div>`
+                            : `<div class="cell cellEmpty"></div>`;
+          }
+        }
+
+        grid.innerHTML = `
+          <div class="floorTitle">${floor.name || 'Untitled floor'} (${rows}×${cols})</div>
+          <div class="floorGrid" style="grid-template-columns: repeat(${cols}, minmax(42px, 1fr));">
+            ${cellsHtml}
+          </div>`;
+      }
+
+      window.selectFloor = (id) => {
+        activeFloorId = id;
+        render();
+      };
+    }
+
+    function renderCard(d) {
+      const status = (d.status || 'disconnected').toLowerCase();
+      const iconClass = TYPE_ICONS[d.type] || 'fa-solid fa-circle-question';
+
+      const optionsHtml = STATES.map((s) =>
+        `<option value="${s}" ${s === status ? 'selected' : ''}>${s.toUpperCase()}</option>`
+      ).join('');
+
+      return `
+        <div class="card ${status}">
+          <div class="cardHead">
+            <i class="typeIcon ${iconClass}"></i>
+            <span class="name">${d.name || 'Unnamed'}</span>
+            <span class="led ${status}"></span>
+          </div>
+          <select class="statusSelect ${status}" onchange="setStatus('${d.id}', this.value)">
+            ${optionsHtml}
+          </select>
+        </div>`;
+    }
+
+    // Writes directly to Firebase - this is what makes the simulator a real
+    // stand-in for hardware: flipping a device to ERROR/DISCONNECTED here
+    // simulates a real appliance failing, and the mobile app reflects it
+    // live via its own onValue listener, no refresh needed on that side.
+    function setStatus(deviceId, newStatus) {
+      const updates = { status: newStatus };
+      updates.turnedOnAt = newStatus === 'on' ? Date.now() : null;
+      db.ref('devices/' + deviceId).update(updates);
+    }
+  </script>
+</body>
+</html>
