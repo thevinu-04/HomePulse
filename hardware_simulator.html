@@ -127,6 +127,7 @@
       statusEl.className = 'ok';
       statusEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Connected  listening for live updates.';
       listenForDevices();
+      startSafetyWorker();
     });
 
     function listenForDevices() {
@@ -220,10 +221,113 @@
     // stand-in for hardware: flipping a device to ERROR/DISCONNECTED here
     // simulates a real appliance failing, and the mobile app reflects it
     // live via its own onValue listener, no refresh needed on that side.
-    function setStatus(deviceId, newStatus) {
-      const updates = { status: newStatus };
-      updates.turnedOnAt = newStatus === 'on' ? Date.now() : null;
-      db.ref('devices/' + deviceId).update(updates);
+    async function setStatus(deviceId, newStatus) {
+      const deviceRef = db.ref('devices/' + deviceId);
+      const snapshot = await deviceRef.once('value');
+      const device = snapshot.val() || {};
+      const now = Date.now();
+      const updates = {
+        status: newStatus,
+        turnedOnAt: newStatus === 'on' ? now : null,
+      };
+
+
+    // Demo fallback for projects on Firebase's free plan. Keep this simulator
+    // page open so it can enforce safety durations without Cloud Functions.
+    function startSafetyWorker() {
+      enforceSafetyCutoffs();
+      window.setInterval(enforceSafetyCutoffs, 5000);
+    }
+
+    async function enforceSafetyCutoffs() {
+      const snapshot = await db.ref('devices').once('value');
+      const devices = snapshot.val() || {};
+      const now = Date.now();
+
+      await Promise.all(Object.entries(devices).map(async ([deviceId, device]) => {
+        if (device.type !== 'safetyCritical' || device.status !== 'on' ||
+            !device.turnedOnAt || !device.maxOnDurationSeconds) {
+          return;
+        }
+
+        const durationSeconds = Math.round((now - device.turnedOnAt) / 1000);
+        if (durationSeconds < device.maxOnDurationSeconds) {
+          return;
+        }
+
+        const deviceRef = db.ref('devices/' + deviceId);
+        let cutoffApplied = false;
+        const result = await deviceRef.transaction((current) => {
+          if (!current || current.status !== 'on' ||
+              current.turnedOnAt !== device.turnedOnAt) {
+            return;
+          }
+          cutoffApplied = true;
+          return {
+            ...current,
+            status: 'off',
+            turnedOnAt: null,
+            totalOnSeconds: (current.totalOnSeconds || 0) + durationSeconds,
+          };
+        });
+
+        if (!result.committed || !cutoffApplied) {
+          return;
+        }
+
+        const floorSnapshot = await db.ref('floors/' + device.floorId).once('value');
+        const floor = floorSnapshot.val() || {};
+        await Promise.all([
+          db.ref('usageLogs/' + deviceId).push().set({
+            endedAt: now,
+            durationSeconds: durationSeconds,
+          }),
+          db.ref('alerts').push().set({
+            deviceId: deviceId,
+            deviceName: device.name || 'Safety device',
+            floorName: floor.name || 'Unknown floor',
+            status: 'off',
+            severity: 'safetyCutoff',
+            message: `${floor.name || 'Unknown floor'}: ${device.name || 'Safety device'} was switched off after reaching its safety limit.`,
+            timestamp: now,
+          }),
+        ]);
+      }));
+    }
+        if (['off', 'error', 'disconnected'].includes(newStatus) &&
+          device.turnedOnAt) {
+        const durationSeconds = Math.round((now - device.turnedOnAt) / 1000);
+        updates.totalOnSeconds = (device.totalOnSeconds || 0) + durationSeconds;
+        await db.ref('usageLogs/' + deviceId).push({
+          endedAt: now,
+          durationSeconds: durationSeconds,
+        });
+      }
+
+      // Hardware ON/OFF controls the whole multi-switch unit, so every
+      // Flutter channel toggle stays synchronized with the simulator.
+      if (device.type === 'multiSwitch' &&
+          (newStatus === 'on' || newStatus === 'off')) {
+        Object.keys(device.channels || {}).forEach((channelId) => {
+          updates['channels/' + channelId + '/isOn'] = newStatus === 'on';
+        });
+      }
+
+      await deviceRef.update(updates);
+
+      if (newStatus === 'error' || newStatus === 'disconnected') {
+        const floorSnapshot = await db.ref('floors/' + device.floorId).once('value');
+        const floor = floorSnapshot.val() || {};
+        await db.ref('alerts').push({
+          deviceId: deviceId,
+          deviceName: device.name || 'Unnamed device',
+          floorName: floor.name || 'Unknown floor',
+          status: newStatus,
+          message: `${floor.name || 'Unknown floor'}: ${device.name || 'Device'} is ${newStatus}.`,
+          timestamp: now,
+          severity: newStatus,
+        });
+      }
     }
   </script>
 </body>

@@ -22,7 +22,9 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
       builder: (context, snapshot) {
         final device = snapshot.data;
         if (device == null) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
         return Scaffold(
           appBar: AppBar(
@@ -33,7 +35,9 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                 tooltip: 'Usage report',
                 onPressed: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => ReportsScreen(device: device)),
+                  MaterialPageRoute(
+                    builder: (_) => ReportsScreen(device: device),
+                  ),
                 ),
               ),
               PopupMenuButton<String>(
@@ -76,7 +80,8 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
 
                     if (confirm == true) {
                       await _service.deleteDevice(device.id);
-                      if (mounted) Navigator.pop(context);
+                      if (!context.mounted) return;
+                      Navigator.pop(context);
                     }
                   }
                 },
@@ -161,8 +166,9 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
         Text('Max continuous ON: ${device.maxOnDurationSeconds ?? 0}s'),
         const SizedBox(height: 4),
         const Text(
-          'This device is monitored server-side. If left ON past its max '
-          'duration it will be auto-switched OFF and an alert raised.',
+          'Safety monitoring is active while the app or simulator is open. '
+          'If left ON past its max duration it will be auto-switched OFF and '
+          'an alert raised.',
           style: TextStyle(color: Colors.grey),
         ),
       ],
@@ -183,7 +189,10 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
 
   Widget _multiSwitchView(Device device) {
     final channels = [...device.channels]
-      ..sort((first, second) => _channelNumber(first).compareTo(_channelNumber(second)));
+      ..sort(
+        (first, second) =>
+            _channelNumber(first).compareTo(_channelNumber(second)),
+      );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -209,7 +218,8 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   }
 
   int _channelNumber(SwitchChannel channel) {
-    final match = RegExp(r'\d+').firstMatch(channel.label) ??
+    final match =
+        RegExp(r'\d+').firstMatch(channel.label) ??
         RegExp(r'\d+').firstMatch(channel.id);
     return match == null ? 0 : int.parse(match.group(0)!);
   }
