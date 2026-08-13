@@ -123,52 +123,109 @@ class _HomeReportsScreen extends StatelessWidget {
     final service = FirebaseService();
     return Scaffold(
       appBar: AppBar(title: const Text('Reports')),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: _ReportsNav(onHomeTap: () => Navigator.pop(context)),
+      ),
       body: StreamBuilder<List<Device>>(
         stream: service.devicesStream(),
         builder: (context, deviceSnapshot) =>
             StreamBuilder<Map<String, dynamic>>(
               stream: service.usageLogsStream(),
-              builder: (context, usageSnapshot) =>
-                  StreamBuilder<List<Map<String, dynamic>>>(
-                    stream: service.alertsStream(),
-                    builder: (context, alertSnapshot) {
-                      if (deviceSnapshot.connectionState ==
-                              ConnectionState.waiting ||
-                          usageSnapshot.connectionState ==
-                              ConnectionState.waiting ||
-                          alertSnapshot.connectionState ==
-                              ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
+              builder: (context, usageSnapshot) {
+                if (deviceSnapshot.connectionState == ConnectionState.waiting ||
+                    usageSnapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-                      final devices = deviceSnapshot.data ?? const <Device>[];
-                      final usage =
-                          usageSnapshot.data ?? const <String, dynamic>{};
-                      final alerts =
-                          alertSnapshot.data ?? const <Map<String, dynamic>>[];
-                      return _ReportsBody(
-                        devices: devices,
-                        usage: usage,
-                        alerts: alerts,
-                      );
-                    },
-                  ),
+                return _ReportsBody(
+                  devices: deviceSnapshot.data ?? const <Device>[],
+                  usage: usageSnapshot.data ?? const <String, dynamic>{},
+                );
+              },
             ),
       ),
     );
   }
 }
 
-class _ReportsBody extends StatelessWidget {
-  const _ReportsBody({
-    required this.devices,
-    required this.usage,
-    required this.alerts,
+class _ReportsNav extends StatelessWidget {
+  const _ReportsNav({required this.onHomeTap});
+
+  final VoidCallback onHomeTap;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surface,
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: _ReportsNavItem(
+            icon: Icons.home_rounded,
+            label: 'Home',
+            onTap: onHomeTap,
+          ),
+        ),
+        const Expanded(
+          child: _ReportsNavItem(
+            icon: Icons.bar_chart_rounded,
+            label: 'Reports',
+            selected: true,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ReportsNavItem extends StatelessWidget {
+  const _ReportsNavItem({
+    required this.icon,
+    required this.label,
+    this.selected = false,
+    this.onTap,
   });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(18),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: selected ? Theme.of(context).colorScheme.primary : null,
+          ),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _ReportsBody extends StatelessWidget {
+  const _ReportsBody({required this.devices, required this.usage});
 
   final List<Device> devices;
   final Map<String, dynamic> usage;
-  final List<Map<String, dynamic>> alerts;
 
   @override
   Widget build(BuildContext context) {
@@ -188,20 +245,12 @@ class _ReportsBody extends StatelessWidget {
       0,
       (total, minutes) => total + minutes,
     );
-    final rankedDevices = [...devices]
+    final analysedDevices = [...devices]
       ..sort(
         (first, second) => (minutesByDevice[second.id] ?? 0).compareTo(
           minutesByDevice[first.id] ?? 0,
         ),
       );
-    final safetyEvents = alerts
-        .where(
-          (alert) =>
-              alert['severity'] == 'safetyCutoff' ||
-              alert['status'] == DeviceStatus.error.name ||
-              alert['status'] == DeviceStatus.disconnected.name,
-        )
-        .toList();
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
@@ -245,29 +294,7 @@ class _ReportsBody extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         Text(
-          'Usage by device',
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 10),
-        if (sessionCount == 0)
-          const _EmptyReportSection(
-            message: 'Usage will appear here after a device is switched off.',
-          )
-        else
-          ...rankedDevices
-              .where((device) => (minutesByDevice[device.id] ?? 0) > 0)
-              .take(5)
-              .map(
-                (device) => _UsageDeviceTile(
-                  device: device,
-                  minutes: minutesByDevice[device.id] ?? 0,
-                ),
-              ),
-        const SizedBox(height: 24),
-        Text(
-          'Device activity',
+          'Device analytics',
           style: Theme.of(
             context,
           ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -276,27 +303,14 @@ class _ReportsBody extends StatelessWidget {
         if (devices.isEmpty)
           const _EmptyReportSection(message: 'No devices have been added yet.')
         else
-          ...devices
-              .take(5)
-              .map(
-                (device) => _ActivityTile(
-                  device: device,
-                  sessions:
-                      (usage[device.id] as Map<dynamic, dynamic>?)?.length ?? 0,
-                ),
-              ),
-        const SizedBox(height: 24),
-        Text(
-          'Safety events',
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 10),
-        if (safetyEvents.isEmpty)
-          const _EmptyReportSection(message: 'No safety events recorded.')
-        else
-          ...safetyEvents.take(4).map(_SafetyEventTile.new),
+          ...analysedDevices.map(
+            (device) => _ActivityTile(
+              device: device,
+              minutes: minutesByDevice[device.id] ?? 0,
+              sessions:
+                  (usage[device.id] as Map<dynamic, dynamic>?)?.length ?? 0,
+            ),
+          ),
       ],
     );
   }
@@ -338,27 +352,16 @@ class _ReportMetric extends StatelessWidget {
   );
 }
 
-class _UsageDeviceTile extends StatelessWidget {
-  const _UsageDeviceTile({required this.device, required this.minutes});
-
-  final Device device;
-  final double minutes;
-
-  @override
-  Widget build(BuildContext context) => ListTile(
-    contentPadding: EdgeInsets.zero,
-    leading: const CircleAvatar(child: Icon(Icons.bar_chart_rounded)),
-    title: Text(device.name),
-    subtitle: Text(_deviceType(device.type)),
-    trailing: Text('${minutes.toStringAsFixed(1)} min'),
-  );
-}
-
 class _ActivityTile extends StatelessWidget {
-  const _ActivityTile({required this.device, required this.sessions});
+  const _ActivityTile({
+    required this.device,
+    required this.sessions,
+    required this.minutes,
+  });
 
   final Device device;
   final int sessions;
+  final double minutes;
 
   @override
   Widget build(BuildContext context) {
@@ -372,7 +375,7 @@ class _ActivityTile extends StatelessWidget {
       ),
       title: Text(device.name),
       subtitle: Text(
-        '$sessions recorded ${sessions == 1 ? 'session' : 'sessions'}',
+        '${minutes.toStringAsFixed(1)} min | $sessions ${sessions == 1 ? 'session' : 'sessions'} | ${_deviceType(device.type)}',
       ),
       trailing: Text(
         status,
@@ -380,32 +383,6 @@ class _ActivityTile extends StatelessWidget {
           color: active ? Colors.teal : Theme.of(context).colorScheme.outline,
           fontWeight: FontWeight.w700,
         ),
-      ),
-    );
-  }
-}
-
-class _SafetyEventTile extends StatelessWidget {
-  const _SafetyEventTile(this.event);
-
-  final Map<String, dynamic> event;
-
-  @override
-  Widget build(BuildContext context) {
-    final timestamp = event['timestamp'] as int?;
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        Icons.warning_amber_rounded,
-        color: Theme.of(context).colorScheme.error,
-      ),
-      title: Text(event['deviceName'] as String? ?? 'Safety event'),
-      subtitle: Text(
-        timestamp == null
-            ? event['message'] as String? ?? 'Device needs attention'
-            : DateFormat(
-                'MMM d, HH:mm',
-              ).format(DateTime.fromMillisecondsSinceEpoch(timestamp)),
       ),
     );
   }

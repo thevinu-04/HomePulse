@@ -63,6 +63,15 @@ class _FloorListScreenState extends State<FloorListScreen> {
           ),
         ],
       ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: _DashboardNav(
+          onReportsTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ReportsScreen()),
+          ),
+        ),
+      ),
       body: StreamBuilder<List<Device>>(
         stream: widget.service.devicesStream(),
         builder: (context, snapshot) {
@@ -167,22 +176,6 @@ class _DashboardBody extends StatelessWidget {
                 devices: devices,
                 service: service,
               ),
-            const SizedBox(height: 18),
-            _SafetyCard(
-              alertCount: alertCount,
-              devices: devices,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AlertsScreen()),
-              ),
-            ),
-            const SizedBox(height: 20),
-            _DashboardNav(
-              onReportsTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ReportsScreen()),
-              ),
-            ),
           ],
         );
       },
@@ -554,74 +547,6 @@ class _DashboardDeviceCard extends StatelessWidget {
       ),
     ),
   );
-}
-
-class _SafetyCard extends StatelessWidget {
-  const _SafetyCard({
-    required this.alertCount,
-    required this.devices,
-    required this.onTap,
-  });
-
-  final int alertCount;
-  final List<Device> devices;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final activeSafety = devices
-        .where(
-          (device) =>
-              device.type == DeviceType.safetyCritical &&
-              device.status == DeviceStatus.on,
-        )
-        .length;
-    final unsafe = alertCount > 0 || activeSafety > 0;
-    final color = unsafe ? const Color(0xFFE94B52) : const Color(0xFF2D9D78);
-    return Material(
-      color: color.withValues(alpha: 0.12),
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Icon(
-                unsafe
-                    ? Icons.warning_amber_rounded
-                    : Icons.verified_user_outlined,
-                color: color,
-                size: 29,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      unsafe
-                          ? 'Safety needs attention'
-                          : 'Home safety is normal',
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      unsafe
-                          ? '$alertCount alerts | $activeSafety monitored devices on'
-                          : 'All monitored devices are operating normally',
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _DashboardNav extends StatelessWidget {
