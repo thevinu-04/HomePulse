@@ -1,16 +1,16 @@
-/// Every device type the app supports.
-/// This single enum + a flexible config map is what lets one Firebase
-/// node type represent outlets, multi-switch gangs, irons, scheduled
-/// lights and cameras without five separate tables.
 enum DeviceType { outlet, multiSwitch, safetyCritical, scheduledLight, camera }
 
 enum DeviceStatus { on, off, error, disconnected }
 
-DeviceType deviceTypeFromString(String s) =>
-    DeviceType.values.firstWhere((e) => e.name == s, orElse: () => DeviceType.outlet);
+DeviceType deviceTypeFromString(String s) => DeviceType.values.firstWhere(
+  (e) => e.name == s,
+  orElse: () => DeviceType.outlet,
+);
 
-DeviceStatus deviceStatusFromString(String s) =>
-    DeviceStatus.values.firstWhere((e) => e.name == s, orElse: () => DeviceStatus.disconnected);
+DeviceStatus deviceStatusFromString(String s) => DeviceStatus.values.firstWhere(
+  (e) => e.name == s,
+  orElse: () => DeviceStatus.disconnected,
+);
 
 class SwitchChannel {
   final String id;
@@ -42,23 +42,17 @@ class Device {
   final int gridRow;
   final int gridCol;
 
-  // Turned on at (epoch millis) - used for safety-cutoff + schedules + usage logs
   final int? turnedOnAt;
 
-  // safetyCritical only: max allowed continuous ON duration, in seconds
   final int? maxOnDurationSeconds;
 
-  // scheduledLight only: preset auto on/off window, "HH:mm" 24h format
   final String? scheduleStart;
   final String? scheduleEnd;
 
-  // multiSwitch only: independently addressable channels within one unit
   final List<SwitchChannel> channels;
 
-  // camera only: mock snapshot/stream uri
   final String? streamUri;
 
-  // total accumulated ON seconds, for reporting
   final int totalOnSeconds;
 
   Device({
@@ -143,7 +137,8 @@ class Device {
       'gridRow': gridRow,
       'gridCol': gridCol,
       if (turnedOnAt != null) 'turnedOnAt': turnedOnAt,
-      if (maxOnDurationSeconds != null) 'maxOnDurationSeconds': maxOnDurationSeconds,
+      if (maxOnDurationSeconds != null)
+        'maxOnDurationSeconds': maxOnDurationSeconds,
       if (scheduleStart != null) 'scheduleStart': scheduleStart,
       if (scheduleEnd != null) 'scheduleEnd': scheduleEnd,
       if (channels.isNotEmpty)

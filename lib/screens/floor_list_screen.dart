@@ -12,16 +12,10 @@ import 'my_floors_screen.dart';
 import 'reports_screen.dart';
 
 class FloorListScreen extends StatefulWidget {
-  const FloorListScreen({
-    super.key,
-    FirebaseService? service,
-    this.isDark = false,
-    this.onToggleTheme,
-  }) : _service = service;
+  const FloorListScreen({super.key, FirebaseService? service})
+    : _service = service;
 
   final FirebaseService? _service;
-  final bool isDark;
-  final VoidCallback? onToggleTheme;
 
   FirebaseService get service => _service ?? FirebaseService();
 
@@ -39,15 +33,6 @@ class _FloorListScreenState extends State<FloorListScreen> {
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
         actions: [
-          IconButton(
-            icon: Icon(
-              widget.isDark
-                  ? Icons.light_mode_outlined
-                  : Icons.dark_mode_outlined,
-            ),
-            tooltip: widget.isDark ? 'Use light mode' : 'Use night mode',
-            onPressed: widget.onToggleTheme,
-          ),
           IconButton(
             icon: const Icon(Icons.notifications_active_outlined),
             tooltip: 'Safety alerts',

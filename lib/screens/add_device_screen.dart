@@ -25,9 +25,11 @@ class AddDeviceScreen extends StatefulWidget {
 
 class _AddDeviceScreenState extends State<AddDeviceScreen> {
   final _nameCtrl = TextEditingController();
-  final _maxDurationCtrl = TextEditingController(text: '900'); // 15 min default
+  final _maxDurationCtrl = TextEditingController(text: '900');
   final _channelCountCtrl = TextEditingController(text: '3');
-  final _streamUriCtrl = TextEditingController(text: 'mock://camera/stream.jpg');
+  final _streamUriCtrl = TextEditingController(
+    text: 'mock://camera/stream.jpg',
+  );
   late final FirebaseService _service = widget.service ?? FirebaseService();
 
   DeviceType _type = DeviceType.outlet;
@@ -76,7 +78,9 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
     List<SwitchChannel> channels = [];
     if (_type == DeviceType.multiSwitch) {
       final count = int.tryParse(_channelCountCtrl.text) ?? 3;
-      channels = (widget.device?.channels.isNotEmpty == true && widget.device!.channels.length == count)
+      channels =
+          (widget.device?.channels.isNotEmpty == true &&
+              widget.device!.channels.length == count)
           ? widget.device!.channels
           : List.generate(
               count,
@@ -88,7 +92,8 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
             );
     }
 
-    final baseDevice = widget.device ??
+    final baseDevice =
+        widget.device ??
         Device(
           id: const Uuid().v4(),
           floorId: widget.floorId,
@@ -147,11 +152,26 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
               border: OutlineInputBorder(),
             ),
             items: const [
-              DropdownMenuItem(value: DeviceType.outlet, child: Text('Electrical Outlet')),
-              DropdownMenuItem(value: DeviceType.multiSwitch, child: Text('Multi-Switch Unit')),
-              DropdownMenuItem(value: DeviceType.safetyCritical, child: Text('Safety-Critical (Iron etc.)')),
-              DropdownMenuItem(value: DeviceType.scheduledLight, child: Text('Scheduled Light')),
-              DropdownMenuItem(value: DeviceType.camera, child: Text('Security Camera')),
+              DropdownMenuItem(
+                value: DeviceType.outlet,
+                child: Text('Electrical Outlet'),
+              ),
+              DropdownMenuItem(
+                value: DeviceType.multiSwitch,
+                child: Text('Multi-Switch Unit'),
+              ),
+              DropdownMenuItem(
+                value: DeviceType.safetyCritical,
+                child: Text('Safety-Critical (Iron etc.)'),
+              ),
+              DropdownMenuItem(
+                value: DeviceType.scheduledLight,
+                child: Text('Scheduled Light'),
+              ),
+              DropdownMenuItem(
+                value: DeviceType.camera,
+                child: Text('Security Camera'),
+              ),
             ],
             onChanged: (v) => setState(() => _type = v!),
           ),
@@ -162,7 +182,10 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
             onPressed: _saving ? null : _save,
             icon: _saving
                 ? const SizedBox(
-                    width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : const Icon(Icons.check),
             label: Text(isEditing ? 'Save Changes' : 'Add Device'),
           ),
@@ -202,7 +225,10 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
             title: const Text('Auto ON time'),
             trailing: Text(_fmt(_start)),
             onTap: () async {
-              final picked = await showTimePicker(context: context, initialTime: _start);
+              final picked = await showTimePicker(
+                context: context,
+                initialTime: _start,
+              );
               if (picked != null) setState(() => _start = picked);
             },
           ),
@@ -210,7 +236,10 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
             title: const Text('Auto OFF time'),
             trailing: Text(_fmt(_end)),
             onTap: () async {
-              final picked = await showTimePicker(context: context, initialTime: _end);
+              final picked = await showTimePicker(
+                context: context,
+                initialTime: _end,
+              );
               if (picked != null) setState(() => _end = picked);
             },
           ),
@@ -226,7 +255,9 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
           ),
         ];
       case DeviceType.outlet:
-        return [const Text('No extra configuration needed for a plain outlet.')];
+        return [
+          const Text('No extra configuration needed for a plain outlet.'),
+        ];
     }
   }
 }

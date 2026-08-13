@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/floor.dart';
 import '../services/firebase_service.dart';
 
-/// A few bundled sample floor plan images (add these under assets/floorplans/
-/// and register them in pubspec.yaml under flutter: assets:).
 const samplePlans = <String>[
   'assets/floorplans/sample_1bhk.png',
   'assets/floorplans/sample_2bhk.png',
@@ -11,11 +9,7 @@ const samplePlans = <String>[
 ];
 
 class AddFloorScreen extends StatefulWidget {
-  const AddFloorScreen({
-    super.key,
-    this.floor,
-    this.service,
-  });
+  const AddFloorScreen({super.key, this.floor, this.service});
 
   final Floor? floor;
   final FirebaseService? service;
@@ -90,17 +84,27 @@ class _AddFloorScreenState extends State<AddFloorScreen> {
           Row(
             children: [
               Expanded(
-                child: _stepper('Rows', _rows, (v) => setState(() => _rows = v)),
+                child: _stepper(
+                  'Rows',
+                  _rows,
+                  (v) => setState(() => _rows = v),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _stepper('Cols', _cols, (v) => setState(() => _cols = v)),
+                child: _stepper(
+                  'Cols',
+                  _cols,
+                  (v) => setState(() => _cols = v),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 20),
-          Text('Sample floor plan (optional)',
-              style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            'Sample floor plan (optional)',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 10,
@@ -121,7 +125,8 @@ class _AddFloorScreenState extends State<AddFloorScreen> {
                 ? const SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2))
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : const Icon(Icons.check),
             label: Text(isEditing ? 'Save Changes' : 'Create Floor'),
           ),

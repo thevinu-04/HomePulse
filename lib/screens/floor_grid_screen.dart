@@ -6,9 +6,6 @@ import '../widgets/device_tile.dart';
 import 'add_device_screen.dart';
 import 'device_detail_screen.dart';
 
-/// Shows the floor's background image (if any) with an abstract grid
-/// overlaid on top. Each occupied grid cell renders a DeviceTile that
-/// reacts live to Firebase updates - no manual refresh needed.
 class FloorGridScreen extends StatefulWidget {
   final Floor floor;
   const FloorGridScreen({super.key, required this.floor});
@@ -46,15 +43,13 @@ class _FloorGridScreenState extends State<FloorGridScreen> {
                 padding: const EdgeInsets.all(12),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    // Compute the aspect ratio each cell needs so that
-                    // gridCols x gridRows exactly fills the available
-                    // width AND height, instead of forcing square cells
-                    // that only use up part of the screen.
                     const spacing = 6.0;
-                    final cellWidth = (constraints.maxWidth -
+                    final cellWidth =
+                        (constraints.maxWidth -
                             spacing * (floor.gridCols - 1)) /
                         floor.gridCols;
-                    final cellHeight = (constraints.maxHeight -
+                    final cellHeight =
+                        (constraints.maxHeight -
                             spacing * (floor.gridRows - 1)) /
                         floor.gridRows;
                     final aspectRatio = cellWidth / cellHeight;
@@ -92,7 +87,8 @@ class _FloorGridScreenState extends State<FloorGridScreen> {
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => DeviceDetailScreen(deviceId: device.id),
+                              builder: (_) =>
+                                  DeviceDetailScreen(deviceId: device.id),
                             ),
                           ),
                         );
@@ -115,15 +111,10 @@ class DottedEmptyCell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(
-          color: Colors.grey.withValues(alpha: 0.4),
-          width: 1,
-        ),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.4), width: 1),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: const Center(
-        child: Icon(Icons.add, color: Colors.grey, size: 18),
-      ),
+      child: const Center(child: Icon(Icons.add, color: Colors.grey, size: 18)),
     );
   }
 }

@@ -3,17 +3,6 @@ import 'package:uuid/uuid.dart';
 import '../models/floor.dart';
 import '../models/device.dart';
 
-/// Central service wrapping Firebase Realtime Database.
-///
-/// Sync design:
-/// - The app writes state changes directly to `/devices/{id}` and `/floors/{id}`.
-/// - The app SUBSCRIBES to those same paths with `.onValue` streams, so any
-///   change made anywhere else (the hardware simulator, or the Cloud
-///   Function safety-cutoff worker) is pushed to the app automatically -
-///   no polling, no manual refresh.
-/// - The Cloud Function (see /functions/index.js) watches devices with
-///   type == safetyCritical and forces status -> off if `turnedOnAt`
-///   exceeds `maxOnDurationSeconds`, and writes an entry under `/alerts`.
 class FirebaseService {
   FirebaseService({DatabaseReference? db}) : _db = db;
 
@@ -23,8 +12,6 @@ class FirebaseService {
   bool _isEnforcingSchedules = false;
 
   DatabaseReference get _ref => _db ?? FirebaseDatabase.instance.ref();
-
-  // ---------------- FLOORS ----------------
 
   Stream<List<Floor>> floorsStream() {
     return _ref.child('floors').onValue.map((event) {
@@ -58,7 +45,6 @@ class FirebaseService {
 
   Future<void> deleteFloor(String floorId) async {
     await _ref.child('floors/$floorId').remove();
-    // also remove devices that belonged to this floor
     final snap = await _ref
         .child('devices')
         .orderByChild('floorId')
@@ -71,8 +57,6 @@ class FirebaseService {
       }
     }
   }
-
-  // ---------------- DEVICES ----------------
 
   Stream<List<Device>> devicesStream() {
     return _ref.child('devices').onValue.map((event) {
@@ -119,7 +103,6 @@ class FirebaseService {
     await _ref.child('devices/$deviceId').remove();
   }
 
-  /// Simple ON/OFF toggle for outlets, irons, scheduled lights.
   Future<void> toggleDevice(Device device) async {
     final turningOn = device.status != DeviceStatus.on;
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -131,7 +114,6 @@ class FirebaseService {
     if (turningOn) {
       updates['turnedOnAt'] = now;
     } else {
-      // accumulate usage time for reporting when turning off
       if (device.turnedOnAt != null) {
         final elapsedSec = ((now - device.turnedOnAt!) / 1000).round();
         updates['totalOnSeconds'] = device.totalOnSeconds + elapsedSec;
@@ -143,7 +125,6 @@ class FirebaseService {
     await _ref.child('devices/${device.id}').update(updates);
   }
 
-  /// Toggle one channel inside a multi-switch gang unit.
   Future<void> toggleChannel(Device device, String channelId) async {
     final channel = device.channels.firstWhere((c) => c.id == channelId);
     final isTurningOn = !channel.isOn;
@@ -171,8 +152,6 @@ class FirebaseService {
     await _ref.child('devices/${device.id}').update(updates);
   }
 
-  /// Applies scheduled-light time windows while the mobile app is open.
-  /// Windows that cross midnight, such as 22:00 to 06:00, are supported.
   Future<void> enforceScheduledLights() async {
     if (_isEnforcingSchedules) {
       return;
@@ -266,8 +245,6 @@ class FirebaseService {
     return hour * 60 + minute;
   }
 
-  /// Demo fallback for the server-side safety worker. Call this periodically
-  /// while the mobile app is open when Cloud Functions are unavailable.
   Future<void> enforceSafetyCutoffs() async {
     if (_isEnforcingSafetyCutoffs) {
       return;
@@ -347,8 +324,6 @@ class FirebaseService {
     });
   }
 
-  // ---------------- ALERTS (written by the Cloud Function safety worker) ----------------
-
   Stream<List<Map<String, dynamic>>> alertsStream() {
     return _ref.child('alerts').onValue.map((event) {
       final data = event.snapshot.value as Map<dynamic, dynamic>?;
@@ -369,8 +344,6 @@ class FirebaseService {
   Future<void> clearAllAlerts() {
     return _ref.child('alerts').remove();
   }
-
-  // ---------------- REPORTING ----------------
 
   Stream<Map<String, dynamic>> usageLogsForDevice(String deviceId) {
     return _ref.child('usageLogs/$deviceId').onValue.map((event) {

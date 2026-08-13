@@ -294,22 +294,20 @@ class _ReportsBody extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         Text(
-          'Device analytics',
+          'Total usage by device',
           style: Theme.of(
             context,
           ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
         ),
+        const SizedBox(height: 4),
+        const Text('Minutes recorded for each device'),
         const SizedBox(height: 10),
-        if (devices.isEmpty)
+        if (analysedDevices.isEmpty)
           const _EmptyReportSection(message: 'No devices have been added yet.')
         else
-          ...analysedDevices.map(
-            (device) => _ActivityTile(
-              device: device,
-              minutes: minutesByDevice[device.id] ?? 0,
-              sessions:
-                  (usage[device.id] as Map<dynamic, dynamic>?)?.length ?? 0,
-            ),
+          _UsageByDeviceChart(
+            devices: analysedDevices,
+            minutesByDevice: minutesByDevice,
           ),
       ],
     );
@@ -352,36 +350,134 @@ class _ReportMetric extends StatelessWidget {
   );
 }
 
-class _ActivityTile extends StatelessWidget {
-  const _ActivityTile({
-    required this.device,
-    required this.sessions,
-    required this.minutes,
+class _UsageByDeviceChart extends StatelessWidget {
+  const _UsageByDeviceChart({
+    required this.devices,
+    required this.minutesByDevice,
   });
 
-  final Device device;
-  final int sessions;
-  final double minutes;
+  final List<Device> devices;
+  final Map<String, double> minutesByDevice;
 
   @override
   Widget build(BuildContext context) {
-    final active = device.status == DeviceStatus.on;
-    final status = active ? 'On now' : device.status.name.toUpperCase();
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        active ? Icons.power_settings_new_rounded : Icons.power_outlined,
-        color: active ? Colors.teal : Theme.of(context).colorScheme.outline,
+    final maximumMinutes = devices.fold<double>(
+      0,
+      (maximum, device) => (minutesByDevice[device.id] ?? 0) > maximum
+          ? minutesByDevice[device.id] ?? 0
+          : maximum,
+    );
+    final chartWidth = (devices.length * 62.0).clamp(340.0, double.infinity);
+    final color = Theme.of(context).colorScheme.primary;
+
+    return Container(
+      height: 340,
+      padding: const EdgeInsets.fromLTRB(12, 18, 12, 4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
       ),
-      title: Text(device.name),
-      subtitle: Text(
-        '${minutes.toStringAsFixed(1)} min | $sessions ${sessions == 1 ? 'session' : 'sessions'} | ${_deviceType(device.type)}',
-      ),
-      trailing: Text(
-        status,
-        style: TextStyle(
-          color: active ? Colors.teal : Theme.of(context).colorScheme.outline,
-          fontWeight: FontWeight.w700,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: chartWidth,
+          child: BarChart(
+            BarChartData(
+              alignment: BarChartAlignment.spaceAround,
+              maxY: maximumMinutes == 0 ? 1 : maximumMinutes * 1.15,
+              barGroups: [
+                for (var index = 0; index < devices.length; index++)
+                  BarChartGroupData(
+                    x: index,
+                    barRods: [
+                      BarChartRodData(
+                        toY: minutesByDevice[devices[index].id] ?? 0,
+                        color: color,
+                        width: 24,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(4),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+              borderData: FlBorderData(show: false),
+              gridData: FlGridData(
+                drawVerticalLine: false,
+                horizontalInterval: maximumMinutes == 0
+                    ? 1
+                    : maximumMinutes / 4,
+              ),
+              titlesData: FlTitlesData(
+                topTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                rightTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                leftTitles: AxisTitles(
+                  axisNameWidget: const Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Text('Usage (minutes)'),
+                  ),
+                  axisNameSize: 28,
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 56,
+                    interval: maximumMinutes == 0 ? 1 : maximumMinutes / 4,
+                    getTitlesWidget: (value, meta) => SideTitleWidget(
+                      axisSide: meta.axisSide,
+                      child: Text(
+                        NumberFormat.decimalPattern().format(value.round()),
+                        style: Theme.of(context).textTheme.labelSmall,
+                      ),
+                    ),
+                  ),
+                ),
+                bottomTitles: AxisTitles(
+                  axisNameWidget: const Text('Devices'),
+                  axisNameSize: 24,
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 68,
+                    getTitlesWidget: (value, meta) {
+                      final index = value.toInt();
+                      if (index < 0 || index >= devices.length) {
+                        return const SizedBox.shrink();
+                      }
+                      final name = devices[index].name;
+                      return SideTitleWidget(
+                        axisSide: meta.axisSide,
+                        child: SizedBox(
+                          width: 54,
+                          child: Text(
+                            name.length > 8
+                                ? '${name.substring(0, 8)}...'
+                                : name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              barTouchData: BarTouchData(
+                touchTooltipData: BarTouchTooltipData(
+                  getTooltipItem: (group, _, rod, _) {
+                    final device = devices[group.x.toInt()];
+                    return BarTooltipItem(
+                      '${device.name}\n${rod.toY.toStringAsFixed(1)} min',
+                      Theme.of(context).textTheme.labelMedium!,
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -403,11 +499,3 @@ class _EmptyReportSection extends StatelessWidget {
     child: Text(message),
   );
 }
-
-String _deviceType(DeviceType type) => switch (type) {
-  DeviceType.outlet => 'Outlet',
-  DeviceType.multiSwitch => 'Multi-switch',
-  DeviceType.safetyCritical => 'Safety-critical',
-  DeviceType.scheduledLight => 'Scheduled light',
-  DeviceType.camera => 'Camera',
-};

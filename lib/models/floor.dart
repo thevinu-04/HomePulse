@@ -1,7 +1,7 @@
 class Floor {
   final String id;
   final String name;
-  final String? imageAsset; // sample floor plan image, bundled in assets/floorplans/
+  final String? imageAsset;
   final int gridRows;
   final int gridCols;
 
@@ -40,9 +40,9 @@ class Floor {
   }
 
   Map<String, dynamic> toMap() => {
-        'name': name,
-        if (imageAsset != null) 'imageAsset': imageAsset,
-        'gridRows': gridRows,
-        'gridCols': gridCols,
-      };
+    'name': name,
+    if (imageAsset != null) 'imageAsset': imageAsset,
+    'gridRows': gridRows,
+    'gridCols': gridCols,
+  };
 }

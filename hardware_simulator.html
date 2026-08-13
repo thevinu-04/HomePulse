@@ -19,7 +19,6 @@
   #connStatus.ok { color: #2ecc71; }
   #connStatus.err { color: #e74c3c; }
 
-  /* --- Floor tabs --- */
   .tabBar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
   .tabBtn {
     background: #1a1a1a; border: 1px solid #333; color: #999;
@@ -33,7 +32,6 @@
     font-size: 14px; color: #6ecbb0; margin-bottom: 12px;
   }
 
-  /* grid mirrors the app's abstract floor grid: gridRows x gridCols */
   .floorGrid {
     display: grid;
     gap: 6px;
@@ -51,7 +49,6 @@
     background: #131313;
   }
 
-  /* --- Device cards (inside a grid cell) --- */
   .card {
     background: #1c1c1c; border: 2px solid #333; border-radius: 6px;
     padding: 4px; transition: border-color .2s, box-shadow .2s;
@@ -217,10 +214,6 @@
         </div>`;
     }
 
-    // Writes directly to Firebase - this is what makes the simulator a real
-    // stand-in for hardware: flipping a device to ERROR/DISCONNECTED here
-    // simulates a real appliance failing, and the mobile app reflects it
-    // live via its own onValue listener, no refresh needed on that side.
     async function setStatus(deviceId, newStatus) {
       const deviceRef = db.ref('devices/' + deviceId);
       const snapshot = await deviceRef.once('value');
@@ -232,8 +225,6 @@
       };
 
 
-    // Demo fallback for projects on Firebase's free plan. Keep this simulator
-    // page open so it can enforce safety durations without Cloud Functions.
     function startSafetyWorker() {
       enforceSafetyCutoffs();
       window.setInterval(enforceSafetyCutoffs, 5000);
@@ -304,8 +295,6 @@
         });
       }
 
-      // Hardware ON/OFF controls the whole multi-switch unit, so every
-      // Flutter channel toggle stays synchronized with the simulator.
       if (device.type === 'multiSwitch' &&
           (newStatus === 'on' || newStatus === 'off')) {
         Object.keys(device.channels || {}).forEach((channelId) => {
