@@ -1,16 +1,47 @@
-# home_grid
+# 🏠 HomePulse – Smart Home Monitoring & Control System
 
-A new Flutter project.
+HomePulse is a smart home monitoring and control system developed for the  
+**SCS 3311 – Mobile Application Design & Development Mini Project**.
 
-## Getting Started
+The system uses a **Flutter mobile application, Firebase Realtime Database, and a web-based hardware simulator** to monitor and control smart-home devices across multiple floors in real time.
 
-This project is a starting point for a Flutter application.
+## Key Features
 
-A few resources to get you started if this is your first Flutter project:
+- Firebase email/password authentication
+- Multi-floor smart home management
+- Grid-based floor and device representation
+- Real-time device monitoring and control
+- ON, OFF, ERROR and DISCONNECTED device states
+- Multi-switch device support
+- Scheduled lighting
+- Safety-critical device auto cutoff
+- Mock security camera monitoring
+- Device alerts and usage reports
+- Real-time synchronization with the hardware simulator
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Tech Stack
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- **Mobile:** Flutter, Dart
+- **Database:** Firebase Realtime Database
+- **Authentication:** Firebase Authentication
+- **Simulator:** HTML, CSS, JavaScript
+- **Version Control:** Git & GitHub
+
+## Run the Application
+
+```bash
+flutter pub get
+flutter run
+```
+
+## Build APK
+
+```bash
+flutter build apk --release
+```
+
+APK location:
+
+```text
+build/app/outputs/flutter-apk/app-release.apk
+```
